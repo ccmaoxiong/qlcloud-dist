@@ -25,30 +25,21 @@
 
 ## 二、一键安装（版本锁定）
 
-将 `<vX.Y.Z>` 换成目标版本号（如 `v1.0.0`；安装脚本内置默认版本，也可显式指定）。
+以下命令均为**单行**：整行复制粘贴即可完成安装（命令与本次发行版本绑定；安装脚本内置默认版本，也可显式指定）。
 
 ```bash
 # 直连（推荐：GitHub API 返回原始文件，按版本 tag 锁定）
-curl --http1.1 -fsSL --retry 5 --retry-delay 2 -H "Accept: application/vnd.github.raw+json" \
-  "https://api.github.com/repos/ccmaoxiong/qlcloud-dist/contents/install.sh?ref=<vX.Y.Z>" \
-  -o /tmp/qlcloud-install.sh
-sudo QL_LICENSE='QLC-你的授权密钥' sh /tmp/qlcloud-install.sh
+curl --http1.1 -fsSL --retry 5 --retry-delay 2 -H "Accept: application/vnd.github.raw+json" "https://api.github.com/repos/ccmaoxiong/qlcloud-dist/contents/install.sh?ref=v1.0.0" -o /tmp/qlcloud-install.sh && sudo QL_LICENSE='QLC-你的授权密钥' sh /tmp/qlcloud-install.sh
 
 # 直连备用（GitHub API 入口不可用时，从 Release 资产下载）
-curl --http1.1 -fsSL --retry 5 --retry-delay 2 \
-  "https://github.com/ccmaoxiong/qlcloud-dist/releases/download/<vX.Y.Z>/install.sh" \
-  -o /tmp/qlcloud-install.sh
-sudo QL_LICENSE='QLC-你的授权密钥' sh /tmp/qlcloud-install.sh
+curl --http1.1 -fsSL --retry 5 --retry-delay 2 "https://github.com/ccmaoxiong/qlcloud-dist/releases/download/v1.0.0/install.sh" -o /tmp/qlcloud-install.sh && sudo QL_LICENSE='QLC-你的授权密钥' sh /tmp/qlcloud-install.sh
 ```
 
 国内服务器（专用安装器：从镜像下载 `SHA256SUMS` 与 `install.sh`，与脚本内置 SHA256 指纹逐一比对，
 全部一致才执行；任一镜像校验失败自动换下一个，全部失败即中止，不会运行未经验证的脚本）：
 
 ```bash
-curl -4 --http1.1 -fsSL --retry 3 --retry-delay 2 --connect-timeout 15 \
-  -o /tmp/qlcloud-install-cn.sh \
-  "https://ghfast.top/https://github.com/ccmaoxiong/qlcloud-dist/releases/download/<vX.Y.Z>/install-cn.sh"
-sudo QL_LICENSE='QLC-你的授权密钥' sh /tmp/qlcloud-install-cn.sh
+curl -4 --http1.1 -fsSL --retry 3 --retry-delay 2 --connect-timeout 15 -o /tmp/qlcloud-install-cn.sh "https://ghfast.top/https://github.com/ccmaoxiong/qlcloud-dist/releases/download/v1.0.0/install-cn.sh" && sudo QL_LICENSE='QLC-你的授权密钥' sh /tmp/qlcloud-install-cn.sh
 ```
 
 > `install-cn.sh` 与版本绑定（内置该版本 `SHA256SUMS` 与 `install.sh` 的 SHA256 指纹）：升级时请改用新版本 Release 里的 `install-cn.sh`。
@@ -121,14 +112,11 @@ sudo QL_LICENSE='QLC-你的授权密钥' sh /tmp/qlcloud-install-cn.sh
 ### 安装脚本升级（跨大版本 / 指定版本）
 
 ```bash
-# 升级（程序覆盖、数据与授权保留）：使用新版本 Release 的安装命令重跑即可，例如
-curl --http1.1 -fsSL --retry 5 -H "Accept: application/vnd.github.raw+json" \
-  "https://api.github.com/repos/ccmaoxiong/qlcloud-dist/contents/install.sh?ref=<新版 vX.Y.Z>" \
-  -o /tmp/qlcloud-install.sh
-sudo QL_LICENSE='QLC-你的授权密钥' sh /tmp/qlcloud-install.sh
+# 升级（程序覆盖、数据与授权保留）：使用新版本 Release 的安装命令（单行）重跑即可，例如
+curl --http1.1 -fsSL --retry 5 -H "Accept: application/vnd.github.raw+json" "https://api.github.com/repos/ccmaoxiong/qlcloud-dist/contents/install.sh?ref=v1.0.0" -o /tmp/qlcloud-install.sh && sudo QL_LICENSE='QLC-你的授权密钥' sh /tmp/qlcloud-install.sh
 
-# 指定版本 / 回到旧版（install.sh 可显式指定）
-sudo QL_LICENSE='QLC-…' QL_VERSION=<vX.Y.Z> sh /tmp/qlcloud-install.sh
+# 指定版本 / 回到旧版（install.sh 支持 QL_VERSION 指定目标 Release tag）
+sudo QL_LICENSE='QLC-…' QL_VERSION=<目标版本> sh /tmp/qlcloud-install.sh
 
 # 卸载（保留数据）；彻底卸载加 QL_PURGE=1
 sudo QL_UNINSTALL=1 sh /tmp/qlcloud-install.sh

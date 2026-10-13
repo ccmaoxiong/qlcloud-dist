@@ -2,11 +2,8 @@
 # ==============================================================================
 #  QL Cloud 国内网络一键安装入口（Release 资产镜像 + 内置指纹校验）
 #
-#  用法（<发行仓库> 例如 ccmaoxiong/qlcloud-dist；版本号换成目标 Release 的 tag）：
-#    curl -4 --http1.1 -fsSL --retry 3 --retry-delay 2 --connect-timeout 15 \
-#      -o /tmp/qlcloud-install-cn.sh \
-#      "https://ghfast.top/https://github.com/<发行仓库>/releases/download/v1.0.0/install-cn.sh"
-#    sudo QL_LICENSE=QLC-xxxx sh /tmp/qlcloud-install-cn.sh
+#  用法（单行命令，整行复制即可；本脚本与版本绑定，升级时请改用新版本 Release 里的 install-cn.sh）：
+#    curl -4 --http1.1 -fsSL --retry 3 --retry-delay 2 --connect-timeout 15 -o /tmp/qlcloud-install-cn.sh "https://ghfast.top/https://github.com/ccmaoxiong/qlcloud-dist/releases/download/v1.0.0/install-cn.sh" && sudo QL_LICENSE=QLC-xxxx sh /tmp/qlcloud-install-cn.sh
 #
 #  本脚本与版本绑定：依次尝试国内镜像，从 Release 资产下载 SHA256SUMS 与
 #  install.sh，并与此脚本内置指纹（构建发行时写入）逐一比对，全部一致才执行；
@@ -24,8 +21,8 @@ set -eu
 QL_REPO="${QL_REPO:-ccmaoxiong/qlcloud-dist}"
 # 版本与指纹均由发行构建（tools/build-release.js）写入，勿手工修改
 QL_VERSION="v1.0.0"
-QL_EXPECTED_INSTALL_SHA256="7656fdeaebe48208da2d780976a71fbac80ecb2b3df33d48eb0815d4c0eaa2a1"
-QL_EXPECTED_SUMS_SHA256="21002744ae7c0d9fa30c0d5dcdad298740b79f407c427ec5330c4b9a4745cbed"
+QL_EXPECTED_INSTALL_SHA256="acc0b801f7d4d2d4f99a6e28334bf72b7b2c099c7b17150a100a98dbee4b0353"
+QL_EXPECTED_SUMS_SHA256="ac10b94d737c38a87c276e7125c401201b044ac84b104da7e1e6a6602051908b"
 QL_RELEASE_URL="https://github.com/$QL_REPO/releases/download/$QL_VERSION"
 QL_CONNECT_TIMEOUT="${QL_CONNECT_TIMEOUT:-15}"
 QL_MAX_TIME="${QL_MAX_TIME:-300}"
@@ -174,7 +171,7 @@ prepare_mirror() {
 main() {
     # 付费发行：本地先拦一道，无授权密钥时不下载任何文件（深度 Ed25519 验签在 install.sh 内）
     [ -n "${QL_LICENSE:-${QL_LICENSE_KEY:-}}" ] || die "本软件是付费发行版：请设置 QL_LICENSE 为你的授权密钥，例如
-  curl -fsSL <install-cn.sh 下载地址> -o /tmp/qlcloud-install-cn.sh && sudo QL_LICENSE=QLC-xxx sh /tmp/qlcloud-install-cn.sh
+  curl -4 --http1.1 -fsSL --retry 3 --retry-delay 2 --connect-timeout 15 -o /tmp/qlcloud-install-cn.sh \"https://ghfast.top/https://github.com/ccmaoxiong/qlcloud-dist/releases/download/v1.0.0/install-cn.sh\" && sudo QL_LICENSE=QLC-xxx sh /tmp/qlcloud-install-cn.sh
 请向厂商购买授权后重试。"
 
     if [ "$(id -u)" -ne 0 ] && [ "${QL_CN_ALLOW_NONROOT:-0}" != "1" ]; then

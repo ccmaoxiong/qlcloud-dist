@@ -5,13 +5,10 @@
 #  本软件是付费闭源商业软件：安装前会用内嵌公钥在本地校验授权密钥（Ed25519），
 #  密钥缺失、签名不符或已过期会立即中止，不会下载任何文件。
 #
-#  一键安装（把 <发行仓库> 换成实际仓库，例如 ccmaoxiong/qlcloud-dist）：
-#    curl --http1.1 -fsSL --retry 5 --retry-delay 2 \
-#      https://raw.githubusercontent.com/<发行仓库>/main/install.sh -o /tmp/qlcloud-install.sh
-#    sudo QL_LICENSE=QLC-xxxx sh /tmp/qlcloud-install.sh
+#  一键安装（单行命令，整行复制即可；重复执行同一命令即为升级，数据、配置、授权密钥都会保留）：
+#    curl --http1.1 -fsSL --retry 5 --retry-delay 2 https://raw.githubusercontent.com/ccmaoxiong/qlcloud-dist/main/install.sh -o /tmp/qlcloud-install.sh && sudo QL_LICENSE=QLC-xxxx sh /tmp/qlcloud-install.sh
 #
-#  国内网络（GitHub 直连慢）：用 install-cn.sh，或加 QL_DOWNLOAD_BASE_URL=https://ghfast.top
-#  再次执行同一命令即为升级（数据、配置、授权密钥都会保留）。
+#  国内网络（GitHub 直连慢）：用 install-cn.sh（单行命令见发行说明），或加 QL_DOWNLOAD_BASE_URL=https://ghfast.top
 #
 #  常用环境变量：
 #    QL_LICENSE       厂商签发的授权密钥（必填，QLC-…）
@@ -343,7 +340,7 @@ hex_to_binary() {
 
 verify_license() {
     [ -n "$QL_LICENSE" ] || die "本软件是付费发行版：请设置 QL_LICENSE 为你的授权密钥，例如
-  curl -fsSL <install.sh 地址> -o /tmp/qlcloud-install.sh && sudo QL_LICENSE=QLC-xxx sh /tmp/qlcloud-install.sh
+  curl --http1.1 -fsSL --retry 5 --retry-delay 2 https://raw.githubusercontent.com/ccmaoxiong/qlcloud-dist/main/install.sh -o /tmp/qlcloud-install.sh && sudo QL_LICENSE=QLC-xxx sh /tmp/qlcloud-install.sh
 如需购买授权请联系厂商。"
     have base64 || die "校验授权需要 base64（请安装 coreutils）"
     have openssl || die "校验授权需要 openssl"
