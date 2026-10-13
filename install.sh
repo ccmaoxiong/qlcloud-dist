@@ -96,6 +96,19 @@ have() {
     command -v "$1" >/dev/null 2>&1
 }
 
+# 写入/刷新环境文件中的单个键值（面板内一键更新依赖 QL_VERSION / QL_UPDATE_REPO）
+set_env_line() {
+    key="$1"
+    value="$2"
+    file="$3"
+    [ -n "$value" ] || return 0
+    if grep -q "^$key=" "$file" 2>/dev/null; then
+        sed -i "s|^$key=.*|$key=$value|" "$file" 2>/dev/null || true
+    else
+        printf '%s=%s\n' "$key" "$value" >> "$file"
+    fi
+}
+
 validate_url() {
     url="$1"
     case "$url" in
@@ -603,6 +616,13 @@ EOF
     else
         log "保留已有配置文件：$env_file（如需改端口请编辑该文件后重启服务）"
     fi
+    # 面板内「检查更新 / 在线更新」所需：当前版本与发行仓库（升级时同步刷新，面板启动即可读）
+    set_env_line QL_VERSION "$QL_VERSION" "$env_file"
+    set_env_line QL_UPDATE_REPO "$QL_REPO" "$env_file"
+    if [ -n "${QL_UPDATE_MIRRORS:-}" ]; then
+        set_env_line QL_UPDATE_MIRRORS "$QL_UPDATE_MIRRORS" "$env_file"
+    fi
+    printf '%s\n' "$QL_VERSION" > "$QL_DATA_DIR/installed-version"
     if chown root:"$QL_SERVICE_USER" "$env_file" 2>/dev/null; then chmod 0640 "$env_file"; fi
 
     chown -R "$QL_SERVICE_USER:$QL_SERVICE_USER" "$QL_DATA_DIR" "$QL_INSTALL_DIR" 2>/dev/null || true

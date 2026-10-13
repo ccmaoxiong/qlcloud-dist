@@ -92,6 +92,8 @@ sudo QL_LICENSE='QLC-你的授权密钥' sh /tmp/qlcloud-install-cn.sh
 | `QL_JWT_SECRET` | 自动生成 | 固定 JWT 密钥（写入配置文件） |
 | `QL_DOWNLOAD_BASE_URL` | 空 | 下载镜像前缀（如 `https://ghfast.top`），加速 GitHub 下载 |
 | `QL_CN_MIRROR_BASE_URL` | 空 | 仅 `install-cn.sh`：自定义镜像基址（空格分隔多个，指完整 Release 资产基址） |
+| `QL_UPDATE_MIRRORS` | 空 | 面板内更新的下载镜像前缀（空格/逗号分隔，如 `https://ghfast.top`），也可登录管理后台在「版本与更新」页配置 |
+| `QL_RESTART_MODE` | 自动识别 | 面板重启方式：`systemd`（退出后由守护拉起）/ `self`（自拉起）；仅在自动识别不适用时手工指定 |
 | `QL_LOCAL_DIR` | 空 | 离线安装：指向含 `.tar.gz` 与 `SHA256SUMS` 的本地目录 |
 | `QL_INSTALL_DOCKER` | 空 | `1` = 顺带安装 Docker 并拉取青龙镜像 |
 | `QL_OPEN_FIREWALL` | 空 | `1` = 用 ufw / firewalld 放行服务端口 |
@@ -101,6 +103,22 @@ sudo QL_LICENSE='QLC-你的授权密钥' sh /tmp/qlcloud-install-cn.sh
 即：把 `sudo QL_LICENSE=... sh ...` 换成 `sudo QL_LICENSE=... QL_PORT=8080 sh ...` 即可自定义。
 
 ## 五、升级 / 卸载
+
+### 面板内一键更新（推荐）
+
+登录管理后台 → 「版本与更新」：点「检查更新」比对最新 Release，点「立即更新」自动完成
+下载 → SHA256 校验 → 备份旧程序（`.bak`）→ 替换 → 重启；更新完成后页面自动刷新。
+「重启面板」按钮用于手动重启服务进程（用户实例容器不受影响）。
+
+- 适用范围：Linux 服务端；Windows 或不可写安装目录请用下方安装命令升级。
+- 国内服务器若连接 GitHub 超时，在「更新源与加速」填写 API 基址与下载镜像前缀，或直接在
+  环境文件 `/etc/qlcloud/qlcloud.env` 中设置 `QL_UPDATE_MIRRORS` / `QL_UPDATE_API_BASE` 后重启服务。
+- 数据、授权密钥与配置均不随更新变动；回滚可手动把 `qlcloud-server.bak` 改回 `qlcloud-server` 后重启。
+- 重启策略：systemd 托管时退出进程交由 `Restart=always` 拉起；其余场景（裸进程 / nohup / pm2）自动脱离
+  父进程拉起新进程，确认新进程已监听端口后才退出；新进程启动失败则不退出，旧进程继续服务并在
+  「版本与更新」页给出错误。重启细节写 `<数据目录>/restart.log`（含新进程的启动输出）。
+
+### 安装脚本升级（跨大版本 / 指定版本）
 
 ```bash
 # 升级（程序覆盖、数据与授权保留）：使用新版本 Release 的安装命令重跑即可，例如
