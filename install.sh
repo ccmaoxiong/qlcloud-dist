@@ -635,7 +635,7 @@ EOF
     log "默认管理员：admin@example.com / admin12345（登录后请立即修改）"
     log "默认用户：user@example.com / user12345（登录后请立即修改）"
     log "数据目录：$QL_DATA_DIR · 配置：$env_file"
-    warn "生产环境请在前面加 HTTPS 反向代理，并放行青龙实例端口段（默认 20000-20999）"
+warn "生产环境请在前面加 HTTPS 反向代理，并放行青龙实例端口段（默认 15700-15999，可在管理后台调整）"
 }
 
 do_uninstall() {
