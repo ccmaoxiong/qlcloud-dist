@@ -8,7 +8,8 @@
 - 自动化交付：支付成功自动开容器、续期 / 升级（换绑套餐、时长叠加）、到期停机、自动续费；镜像拉取失败可配加速地址、预拉取并一键重试开通
 - 资源隔离：每个套餐 / 实例可配 CPU 上限（核）与内存上限（MB），开通即按 docker --cpus / --memory 下发，续费 / 升级自动同步
 - 商业化闭环：易支付协议（含主动查单）、卡密系统、余额钱包、增值服务、工单、通知渠道
-- 独立管理后台 `/admin-panel`：工作台 / 用户 / 实例 / 套餐 / 卡密 / 订单 / 通知 / 审计 / 系统配置
+- 独立管理后台（默认 `/admin-panel`，可在系统配置修改）：工作台 / 用户 / 实例 / 套餐 / 卡密 / 订单 / 通知 / 审计 / 系统配置
+- HTTPS 与反代：内置 HTTPS（静态证书，TLS 1.2/1.3，保存后热加载）、HTTP→HTTPS 308、HSTS、信任反代头、对外访问地址、Nginx 配置生成
 
 ---
 
@@ -30,17 +31,17 @@
 
 ```bash
 # 直连（推荐：GitHub API 返回原始文件，按版本 tag 锁定）
-curl --http1.1 -fsSL --retry 5 --retry-delay 2 -H "Accept: application/vnd.github.raw+json" "https://api.github.com/repos/ccmaoxiong/qlcloud-dist/contents/install.sh?ref=v1.0.1" -o /tmp/qlcloud-install.sh && sudo QL_LICENSE='QLC-你的授权密钥' sh /tmp/qlcloud-install.sh
+curl --http1.1 -fsSL --retry 5 --retry-delay 2 -H "Accept: application/vnd.github.raw+json" "https://api.github.com/repos/ccmaoxiong/qlcloud-dist/contents/install.sh?ref=v1.0.2" -o /tmp/qlcloud-install.sh && sudo QL_LICENSE='QLC-你的授权密钥' sh /tmp/qlcloud-install.sh
 
 # 直连备用（GitHub API 入口不可用时，从 Release 资产下载）
-curl --http1.1 -fsSL --retry 5 --retry-delay 2 "https://github.com/ccmaoxiong/qlcloud-dist/releases/download/v1.0.1/install.sh" -o /tmp/qlcloud-install.sh && sudo QL_LICENSE='QLC-你的授权密钥' sh /tmp/qlcloud-install.sh
+curl --http1.1 -fsSL --retry 5 --retry-delay 2 "https://github.com/ccmaoxiong/qlcloud-dist/releases/download/v1.0.2/install.sh" -o /tmp/qlcloud-install.sh && sudo QL_LICENSE='QLC-你的授权密钥' sh /tmp/qlcloud-install.sh
 ```
 
 国内服务器（专用安装器：从镜像下载 `SHA256SUMS` 与 `install.sh`，与脚本内置 SHA256 指纹逐一比对，
 全部一致才执行；任一镜像校验失败自动换下一个，全部失败即中止，不会运行未经验证的脚本）：
 
 ```bash
-curl -4 --http1.1 -fsSL --retry 3 --retry-delay 2 --connect-timeout 15 -o /tmp/qlcloud-install-cn.sh "https://ghfast.top/https://github.com/ccmaoxiong/qlcloud-dist/releases/download/v1.0.1/install-cn.sh" && sudo QL_LICENSE='QLC-你的授权密钥' sh /tmp/qlcloud-install-cn.sh
+curl -4 --http1.1 -fsSL --retry 3 --retry-delay 2 --connect-timeout 15 -o /tmp/qlcloud-install-cn.sh "https://ghfast.top/https://github.com/ccmaoxiong/qlcloud-dist/releases/download/v1.0.2/install-cn.sh" && sudo QL_LICENSE='QLC-你的授权密钥' sh /tmp/qlcloud-install-cn.sh
 ```
 
 > `install-cn.sh` 与版本绑定（内置该版本 `SHA256SUMS` 与 `install.sh` 的 SHA256 指纹）：升级时请改用新版本 Release 里的 `install-cn.sh`。
@@ -50,8 +51,8 @@ curl -4 --http1.1 -fsSL --retry 3 --retry-delay 2 --connect-timeout 15 -o /tmp/q
 
 | 入口 | 地址 |
 |---|---|
-| 用户面板 | `http://<服务器IP>:3000` |
-| 管理后台 | `http://<服务器IP>:3000/admin-panel` |
+| 用户面板 | `http://<服务器IP>:3000`（启用内置 HTTPS 后也可用 `https://<服务器IP>:3443`） |
+| 管理后台 | `http://<服务器IP>:3000/admin-panel`（默认，可在系统配置修改） |
 
 | 角色 | 默认账号 | 默认密码 |
 |---|---|---|
@@ -59,7 +60,7 @@ curl -4 --http1.1 -fsSL --retry 3 --retry-delay 2 --connect-timeout 15 -o /tmp/q
 | 普通用户 | `user@example.com`（或 `user`） | `user12345` |
 
 > ⚠️ 首次登录请立即修改默认密码（管理后台 → 账号资料）。
-> 生产环境请在前置反向代理上配置 HTTPS，并放行青龙实例端口段（默认 15700-15999，可在管理后台 → 系统配置调整；新实例在范围内随机分配端口，避免顺序可猜）。
+> 生产环境请启用 HTTPS（内置 HTTPS 或前置反向代理），并放行青龙实例端口段（默认 15700-15999，可在管理后台 → 系统配置调整；新实例在范围内随机分配端口，避免顺序可猜）。
 
 ## 三、安装脚本做了什么
 
@@ -70,12 +71,20 @@ curl -4 --http1.1 -fsSL --retry 3 --retry-delay 2 --connect-timeout 15 -o /tmp/q
 5. 生成 `/etc/qlcloud/qlcloud.env`（端口 / 数据目录 / JWT 密钥），注册并启动 systemd 服务 `qlcloud`；
 6. 把服务用户加入 `docker` 组（Docker 已安装时），并做一次 `http://127.0.0.1:<端口>/api/site` 健康检查。
 
+### HTTPS 与反向代理（可选）
+
+- **内置 HTTPS**：管理后台 →「系统配置 → HTTPS 与反代」粘贴证书 PEM（fullchain.pem）与私钥 PEM（privkey.pem），设置端口（默认 3443）与最低 TLS 版本，可选「强制 HTTPS」「HSTS」，保存后立即热加载，无需重启服务。
+- 使用内置 HTTPS 时，请在云安全组 / 防火墙放行所选 HTTPS 端口（`QL_OPEN_FIREWALL=1` 只放行主服务端口）。
+- **外部反向代理**：用 Nginx / Caddy 终止 TLS 后反代到 `http://127.0.0.1:<QL_PORT>`，并在面板开启「信任反代头」，同时填写「对外访问地址」（如 `https://panel.example.com`），保证支付回调与页面跳转地址正确。
+- 页面内置 Nginx 配置生成：填入域名 →「生成配置」→ 复制到 `/etc/nginx/conf.d/`，按注释申请证书后 `nginx -t && nginx -s reload`。
+- 证书与私钥保存在数据目录的 `db.json`（权限 0600），私钥保存后不再回显。
+
 ## 四、可配置环境变量（均可选）
 
 | 变量 | 默认 | 说明 |
 |---|---|---|
 | `QL_LICENSE` | （必填） | 厂商签发的授权密钥（`QLC-…`） |
-| `QL_VERSION` | 发行包内置 | 指定版本（如 `v1.0.1`）；`latest` 取最新 Release |
+| `QL_VERSION` | 发行包内置 | 指定版本（如 `v1.0.2`）；`latest` 取最新 Release |
 | `QL_PORT` | `3000` | 服务端口 |
 | `QL_INSTALL_DIR` | `/opt/qlcloud` | 程序目录（升级时只覆盖该目录） |
 | `QL_DATA_DIR` | `/var/lib/qlcloud` | 数据目录（db.json / jwt.secret；升级保留） |
@@ -114,7 +123,7 @@ curl -4 --http1.1 -fsSL --retry 3 --retry-delay 2 --connect-timeout 15 -o /tmp/q
 
 ```bash
 # 升级（程序覆盖、数据与授权保留）：使用新版本 Release 的安装命令（单行）重跑即可，例如
-curl --http1.1 -fsSL --retry 5 -H "Accept: application/vnd.github.raw+json" "https://api.github.com/repos/ccmaoxiong/qlcloud-dist/contents/install.sh?ref=v1.0.1" -o /tmp/qlcloud-install.sh && sudo QL_LICENSE='QLC-你的授权密钥' sh /tmp/qlcloud-install.sh
+curl --http1.1 -fsSL --retry 5 -H "Accept: application/vnd.github.raw+json" "https://api.github.com/repos/ccmaoxiong/qlcloud-dist/contents/install.sh?ref=v1.0.2" -o /tmp/qlcloud-install.sh && sudo QL_LICENSE='QLC-你的授权密钥' sh /tmp/qlcloud-install.sh
 
 # 指定版本 / 回到旧版（install.sh 支持 QL_VERSION 指定目标 Release tag）
 sudo QL_LICENSE='QLC-…' QL_VERSION=<目标版本> sh /tmp/qlcloud-install.sh
@@ -146,6 +155,7 @@ journalctl -u qlcloud -n 100            # 4) 日志（授权状态、错误原�
 | 提示「授权密钥验签失败 / 已到期」 | 确认密钥完整复制（含 `QLC-` 前缀与 `~` 分组符）；到期请联系厂商续期 |
 | `curl` 下载失败（国内） | 改用 `install-cn.sh`，或设置 `QL_DOWNLOAD_BASE_URL=https://ghfast.top` |
 | 无法访问面板 | 放行 TCP 端口（`QL_OPEN_FIREWALL=1`，或云厂商安全组）；确认 `systemctl status qlcloud` 正常 |
+| 内置 HTTPS 无法访问 | 在安全组放行 HTTPS 端口（默认 3443）；确认证书与私钥匹配且未过期；查看「HTTPS 与反代」页状态卡片的错误信息 |
 | 端口被占用 | 改端口：`QL_PORT=8080 sh /tmp/qlcloud-install.sh`（已安装则编辑 `qlcloud.env` 后重启） |
 | 实例开通失败 | `docker ps` 确认 Docker 正常；日志确认服务用户在 `docker` 组（`id qlcloud`） |
 | 升级后配置丢失 | 配置在 `/etc/qlcloud`、数据在 `/var/lib/qlcloud`，升级不会触碰；请勿手工删这两个目录 |
