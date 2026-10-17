@@ -12,7 +12,7 @@
 #
 #  常用环境变量：
 #    QL_LICENSE       厂商签发的授权密钥（必填，QLC-…）
-#    QL_VERSION       指定版本，如 v1.0.1；默认 v1.0.0；latest = 取最新 Release
+#    QL_VERSION       指定版本，如 v1.0.1；默认 v1.0.1；latest = 取最新 Release
 #    QL_PORT          服务端口，默认 3000
 #    QL_INSTALL_DIR   程序目录，默认 /opt/qlcloud
 #    QL_DATA_DIR      数据目录，默认 /var/lib/qlcloud
@@ -28,7 +28,7 @@
 set -eu
 
 QL_REPO="${QL_REPO:-ccmaoxiong/qlcloud-dist}"
-QL_VERSION="${QL_VERSION:-v1.0.0}"
+QL_VERSION="${QL_VERSION:-v1.0.1}"
 QL_GITHUB_API_URL="${QL_GITHUB_API_URL:-https://api.github.com}"
 QL_GITHUB_DOWNLOAD_URL="${QL_GITHUB_DOWNLOAD_URL:-https://github.com}"
 QL_DOWNLOAD_BASE_URL="${QL_DOWNLOAD_BASE_URL:-}"
