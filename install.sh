@@ -6,13 +6,13 @@
 #  密钥缺失、签名不符或已过期会立即中止，不会下载任何文件。
 #
 #  一键安装（单行命令，整行复制即可；重复执行同一命令即为升级，数据、配置、授权密钥都会保留）：
-#    curl --http1.1 -fsSL --retry 5 --retry-delay 2 https://raw.githubusercontent.com/ccmaoxiong/qlcloud-dist/main/install.sh -o /tmp/qlcloud-install.sh && sudo QL_LICENSE=QLC-xxxx sh /tmp/qlcloud-install.sh
+#    curl --http1.1 -fL --progress-bar --retry 5 --retry-delay 2 https://raw.githubusercontent.com/ccmaoxiong/qlcloud-dist/main/install.sh -o /tmp/qlcloud-install.sh && sudo QL_LICENSE=QLC-xxxx sh /tmp/qlcloud-install.sh
 #
 #  国内网络（GitHub 直连慢）：用 install-cn.sh（单行命令见发行说明），或加 QL_DOWNLOAD_BASE_URL=https://ghfast.top
 #
 #  常用环境变量：
 #    QL_LICENSE       厂商签发的授权密钥（必填，QLC-…）
-#    QL_VERSION       指定版本，如 v1.0.2；默认 v1.0.2；latest = 取最新 Release
+#    QL_VERSION       指定版本，如 v1.0.3；默认 v1.0.3；latest = 取最新 Release
 #    QL_PORT          服务端口，默认 3000
 #    QL_INSTALL_DIR   程序目录，默认 /opt/qlcloud
 #    QL_DATA_DIR      数据目录，默认 /var/lib/qlcloud
@@ -28,7 +28,7 @@
 set -eu
 
 QL_REPO="${QL_REPO:-ccmaoxiong/qlcloud-dist}"
-QL_VERSION="${QL_VERSION:-v1.0.2}"
+QL_VERSION="${QL_VERSION:-v1.0.3}"
 QL_GITHUB_API_URL="${QL_GITHUB_API_URL:-https://api.github.com}"
 QL_GITHUB_DOWNLOAD_URL="${QL_GITHUB_DOWNLOAD_URL:-https://github.com}"
 QL_DOWNLOAD_BASE_URL="${QL_DOWNLOAD_BASE_URL:-}"
@@ -56,6 +56,11 @@ TMP_DIR=""
 QL_LICENSE="${QL_LICENSE:-${QL_LICENSE_KEY:-}}"
 QL_LICENSE_PUBLIC_KEY="1z82OF0KYipIrvyS0rel7fK6kYJpMkPDqm4wKJvEHfk"
 
+LICENSE_CUSTOMER=""
+LICENSE_EXPIRES_TEXT=""
+LICENSE_MAX_INSTALLS=""
+LICENSE_MASKED=""
+
 case "$QL_VERSION" in
     v*) ;;
     latest | LATEST | "") ;;
@@ -81,6 +86,28 @@ warn() {
 die() {
     printf '%s\n' "error: $*" >&2
     exit 1
+}
+
+mask_license() {
+    raw="$1"
+    tail="$(printf '%s' "$raw" | tail -c 4 2>/dev/null || true)"
+    case "$raw" in
+        QLC-*) printf 'QLC-****%s' "$tail" ;;
+        *) printf '****%s' "$tail" ;;
+    esac
+}
+
+human_size() {
+    file="$1"
+    [ -f "$file" ] || { printf '0 B'; return 0; }
+    bytes="$(wc -c < "$file" | tr -d ' ')"
+    if [ "$bytes" -ge 1048576 ]; then
+        awk -v b="$bytes" 'BEGIN { printf "%.1f MB", b / 1048576 }'
+    elif [ "$bytes" -ge 1024 ]; then
+        awk -v b="$bytes" 'BEGIN { printf "%.1f KB", b / 1024 }'
+    else
+        printf '%s B' "$bytes"
+    fi
 }
 
 need_root() {
@@ -168,19 +195,36 @@ http_get() {
 download_file() {
     url="$1"
     destination="$2"
+    label="${3:-${destination##*/}}"
     validate_url "$url"
+    log "下载 $label …"
     if have curl; then
-        curl --http1.1 -fSL --location --retry "$QL_RETRIES" --retry-delay 2 \
+        if curl --http1.1 -fL --progress-bar --location --retry "$QL_RETRIES" --retry-delay 2 \
             --connect-timeout "$QL_CONNECT_TIMEOUT" --max-time "$QL_MAX_TIME" \
             -H "User-Agent: qlcloud-installer" \
-            -o "$destination" "$url"
-        return
+            -o "$destination" "$url"; then
+            log "下载完成：$label（$(human_size "$destination")）"
+            return 0
+        fi
+        rm -f "$destination"
+        warn "下载失败：$label"
+        return 1
     fi
     if have wget; then
-        wget -q --tries="$QL_RETRIES" --timeout="$QL_CONNECT_TIMEOUT" \
-            --header="User-Agent: qlcloud-installer" \
-            -O "$destination" "$url"
-        return
+        if wget --help 2>&1 | grep -q -- '--show-progress'; then
+            wget -q --show-progress --tries="$QL_RETRIES" --timeout="$QL_CONNECT_TIMEOUT" \
+                --header="User-Agent: qlcloud-installer" \
+                -O "$destination" "$url" \
+                && { log "下载完成：$label（$(human_size "$destination")）"; return 0; }
+        else
+            wget -q --tries="$QL_RETRIES" --timeout="$QL_CONNECT_TIMEOUT" \
+                --header="User-Agent: qlcloud-installer" \
+                -O "$destination" "$url" \
+                && { log "下载完成：$label（$(human_size "$destination")）"; return 0; }
+        fi
+        rm -f "$destination"
+        warn "下载失败：$label"
+        return 1
     fi
     die "需要 curl 或 wget"
 }
@@ -340,7 +384,7 @@ hex_to_binary() {
 
 verify_license() {
     [ -n "$QL_LICENSE" ] || die "本软件是付费发行版：请设置 QL_LICENSE 为你的授权密钥，例如
-  curl --http1.1 -fsSL --retry 5 --retry-delay 2 https://raw.githubusercontent.com/ccmaoxiong/qlcloud-dist/main/install.sh -o /tmp/qlcloud-install.sh && sudo QL_LICENSE=QLC-xxx sh /tmp/qlcloud-install.sh
+  curl --http1.1 -fL --progress-bar --retry 5 --retry-delay 2 https://raw.githubusercontent.com/ccmaoxiong/qlcloud-dist/main/install.sh -o /tmp/qlcloud-install.sh && sudo QL_LICENSE=QLC-xxx sh /tmp/qlcloud-install.sh
 如需购买授权请联系厂商。"
     have base64 || die "校验授权需要 base64（请安装 coreutils）"
     have openssl || die "校验授权需要 openssl"
@@ -392,7 +436,17 @@ verify_license() {
 
     customer="$(cut -d'|' -f2 < "$LIC_TMP/payload")"
     max_installs="$(cut -d'|' -f4 < "$LIC_TMP/payload")"
-    log "授权校验通过：$customer（到期 $(date -d "@$expires" +%Y-%m-%d 2>/dev/null || date -r "$expires" +%Y-%m-%d 2>/dev/null)，最大安装数：${max_installs:-1}）"
+    expires_text="$(date -d "@$expires" +%Y-%m-%d 2>/dev/null || date -r "$expires" +%Y-%m-%d 2>/dev/null || printf '%s' "$expires")"
+    LICENSE_CUSTOMER="$customer"
+    LICENSE_EXPIRES_TEXT="$expires_text"
+    LICENSE_MAX_INSTALLS="${max_installs:-1}"
+    LICENSE_MASKED="$(mask_license "$QL_LICENSE")"
+    log "授权校验通过"
+    log "  授权状态：有效"
+    log "  客户名称：$LICENSE_CUSTOMER"
+    log "  到期时间：$LICENSE_EXPIRES_TEXT"
+    log "  最大安装数：$LICENSE_MAX_INSTALLS"
+    log "  授权密钥：$LICENSE_MASKED"
     rm -rf "$LIC_TMP"
     trap - EXIT HUP INT TERM
 }
@@ -630,6 +684,7 @@ EOF
 
     ip_hint="<服务器公网 IP>"
     log "QL Cloud $QL_VERSION 安装完成"
+    log "授权信息：$LICENSE_CUSTOMER · 到期 $LICENSE_EXPIRES_TEXT · 最大安装数 $LICENSE_MAX_INSTALLS · $LICENSE_MASKED"
     log "用户面板：http://$ip_hint:$QL_PORT"
     log "管理后台：http://$ip_hint:$QL_PORT/admin-panel"
     log "默认管理员：admin@example.com / admin12345（登录后请立即修改）"

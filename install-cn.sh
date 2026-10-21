@@ -3,7 +3,7 @@
 #  QL Cloud 国内网络一键安装入口（Release 资产镜像 + 内置指纹校验）
 #
 #  用法（单行命令，整行复制即可；本脚本与版本绑定，升级时请改用新版本 Release 里的 install-cn.sh）：
-#    curl -4 --http1.1 -fsSL --retry 3 --retry-delay 2 --connect-timeout 15 -o /tmp/qlcloud-install-cn.sh "https://ghfast.top/https://github.com/ccmaoxiong/qlcloud-dist/releases/download/v1.0.2/install-cn.sh" && sudo QL_LICENSE=QLC-xxxx sh /tmp/qlcloud-install-cn.sh
+#    curl -4 --http1.1 -fL --progress-bar --retry 3 --retry-delay 2 --connect-timeout 15 -o /tmp/qlcloud-install-cn.sh "https://ghfast.top/https://github.com/ccmaoxiong/qlcloud-dist/releases/download/v1.0.3/install-cn.sh" && sudo QL_LICENSE=QLC-xxxx sh /tmp/qlcloud-install-cn.sh
 #
 #  本脚本与版本绑定：依次尝试国内镜像，从 Release 资产下载 SHA256SUMS 与
 #  install.sh，并与此脚本内置指纹（构建发行时写入）逐一比对，全部一致才执行；
@@ -20,9 +20,9 @@ set -eu
 
 QL_REPO="${QL_REPO:-ccmaoxiong/qlcloud-dist}"
 # 版本与指纹均由发行构建（tools/build-release.js）写入，勿手工修改
-QL_VERSION="v1.0.2"
-QL_EXPECTED_INSTALL_SHA256="d494ee4c9dd3ccb038c44484a3be0acdf7818fa03480a22ed7f5fea9e8e502a8"
-QL_EXPECTED_SUMS_SHA256="f3bbb0d62f58f5b1a4572fa809b7bb0060307e3f2ed32d8b449159788cbc871f"
+QL_VERSION="v1.0.3"
+QL_EXPECTED_INSTALL_SHA256="f4a48ffa4d56a4dcd1d7d5caa3b4a9f4a0bda1585646ed3d75257080e782c738"
+QL_EXPECTED_SUMS_SHA256="2d34c4f5d3441b81633c55ce5123c9eaebb74da4a2a503eb8713065ae6ead617"
 QL_RELEASE_URL="https://github.com/$QL_REPO/releases/download/$QL_VERSION"
 QL_CONNECT_TIMEOUT="${QL_CONNECT_TIMEOUT:-15}"
 QL_MAX_TIME="${QL_MAX_TIME:-300}"
@@ -40,6 +40,15 @@ warn() {
 die() {
     printf '%s\n' "error: $*" >&2
     exit 1
+}
+
+mask_license() {
+    raw="$1"
+    tail="$(printf '%s' "$raw" | tail -c 4 2>/dev/null || true)"
+    case "$raw" in
+        QLC-*) printf 'QLC-****%s' "$tail" ;;
+        *) printf '****%s' "$tail" ;;
+    esac
 }
 
 cleanup() {
@@ -68,26 +77,43 @@ validate_url() {
 download_file() {
     url="$1"
     destination="$2"
+    label="${3:-${destination##*/}}"
     temporary="$destination.part"
     validate_url "$url"
     rm -f "$destination" "$temporary"
+    log "下载 $label …"
     if have curl; then
-        curl -4 --http1.1 -fSL --location --retry "$QL_RETRIES" --retry-delay 2 \
+        if ! curl -4 --http1.1 -fL --progress-bar --location --retry "$QL_RETRIES" --retry-delay 2 \
             --connect-timeout "$QL_CONNECT_TIMEOUT" --max-time "$QL_MAX_TIME" \
             -H "User-Agent: qlcloud-cn-installer" \
-            -o "$temporary" "$url" || { rm -f "$temporary"; return 1; }
+            -o "$temporary" "$url"; then
+            rm -f "$temporary"
+            warn "下载失败：$label"
+            return 1
+        fi
     elif have wget; then
-        wget -4 -q --tries="$QL_RETRIES" --timeout="$QL_CONNECT_TIMEOUT" \
+        if wget --help 2>&1 | grep -q -- '--show-progress'; then
+            progress="--show-progress"
+        else
+            progress=""
+        fi
+        if ! wget -4 -q $progress --tries="$QL_RETRIES" --timeout="$QL_CONNECT_TIMEOUT" \
             --header="User-Agent: qlcloud-cn-installer" \
-            -O "$temporary" "$url" || { rm -f "$temporary"; return 1; }
+            -O "$temporary" "$url"; then
+            rm -f "$temporary"
+            warn "下载失败：$label"
+            return 1
+        fi
     else
         die "需要 curl 或 wget"
     fi
     if [ -s "$temporary" ]; then
         mv -f "$temporary" "$destination"
+        log "下载完成：$label（$(wc -c < "$destination" | tr -d ' ') 字节）"
         return 0
     fi
     rm -f "$temporary"
+    warn "下载失败：$label（文件为空）"
     return 1
 }
 
@@ -170,13 +196,18 @@ prepare_mirror() {
 
 main() {
     # 付费发行：本地先拦一道，无授权密钥时不下载任何文件（深度 Ed25519 验签在 install.sh 内）
-    [ -n "${QL_LICENSE:-${QL_LICENSE_KEY:-}}" ] || die "本软件是付费发行版：请设置 QL_LICENSE 为你的授权密钥，例如
-  curl -4 --http1.1 -fsSL --retry 3 --retry-delay 2 --connect-timeout 15 -o /tmp/qlcloud-install-cn.sh \"https://ghfast.top/https://github.com/ccmaoxiong/qlcloud-dist/releases/download/v1.0.2/install-cn.sh\" && sudo QL_LICENSE=QLC-xxx sh /tmp/qlcloud-install-cn.sh
+    QL_LICENSE_VALUE="${QL_LICENSE:-${QL_LICENSE_KEY:-}}"
+    [ -n "$QL_LICENSE_VALUE" ] || die "本软件是付费发行版：请设置 QL_LICENSE 为你的授权密钥，例如
+  curl -4 --http1.1 -fL --progress-bar --retry 3 --retry-delay 2 --connect-timeout 15 -o /tmp/qlcloud-install-cn.sh \"https://ghfast.top/https://github.com/ccmaoxiong/qlcloud-dist/releases/download/v1.0.3/install-cn.sh\" && sudo QL_LICENSE=QLC-xxx sh /tmp/qlcloud-install-cn.sh
 请向厂商购买授权后重试。"
 
     if [ "$(id -u)" -ne 0 ] && [ "${QL_CN_ALLOW_NONROOT:-0}" != "1" ]; then
         die "请用 root 运行（sudo QL_LICENSE=QLC-xxx sh $0）"
     fi
+
+    log "授权密钥：$(mask_license "$QL_LICENSE_VALUE")"
+    log "正在下载安装脚本；Ed25519 验签通过后将显示客户名称、到期时间与最大安装数"
+    log "下载过程中会显示进度条，请稍候…"
 
     if ! pins_present; then
         if [ "${QL_CN_ALLOW_UNVERIFIED:-0}" = "1" ]; then
@@ -197,12 +228,14 @@ main() {
             download_prefix="$(download_prefix_for_base "$base")"
             if [ -n "$download_prefix" ]; then
                 log "发行包下载与安装脚本同源：$download_prefix"
-                QL_DOWNLOAD_BASE_URL="$download_prefix" \
+                QL_LICENSE="$QL_LICENSE_VALUE" \
+                    QL_DOWNLOAD_BASE_URL="$download_prefix" \
                     QL_USE_GITHUB_API=0 \
                     QL_VERSION="$QL_VERSION" \
                     sh "$installer" "$@"
             else
-                QL_USE_GITHUB_API=0 \
+                QL_LICENSE="$QL_LICENSE_VALUE" \
+                    QL_USE_GITHUB_API=0 \
                     QL_VERSION="$QL_VERSION" \
                     sh "$installer" "$@"
             fi
