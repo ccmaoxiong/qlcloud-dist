@@ -439,7 +439,10 @@ verify_license() {
     expires_text="$(date -d "@$expires" +%Y-%m-%d 2>/dev/null || date -r "$expires" +%Y-%m-%d 2>/dev/null || printf '%s' "$expires")"
     LICENSE_CUSTOMER="$customer"
     LICENSE_EXPIRES_TEXT="$expires_text"
-    LICENSE_MAX_INSTALLS="${max_installs:-1}"
+    case "$max_installs" in
+        '' | 0 | *[!0-9]*) LICENSE_MAX_INSTALLS="不限" ;;
+        *) LICENSE_MAX_INSTALLS="$max_installs" ;;
+    esac
     LICENSE_MASKED="$(mask_license "$QL_LICENSE")"
     log "授权校验通过"
     log "  授权状态：有效"

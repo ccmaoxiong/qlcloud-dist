@@ -46,7 +46,7 @@ curl -4 --http1.1 -fL --progress-bar --retry 3 --retry-delay 2 --connect-timeout
 
 > `install-cn.sh` 与版本绑定（内置该版本 `SHA256SUMS` 与 `install.sh` 的 SHA256 指纹）：升级时请改用新版本 Release 里的 `install-cn.sh`。
 > 自建/私有镜像：设置 `QL_CN_MIRROR_BASE_URL` 指向完整 Release 资产基址（空格分隔多个，`<基址>/SHA256SUMS`、`<基址>/install.sh` 可访问）。
-> 安装过程显示每个文件的下载进度条；授权校验通过后输出客户名称、到期时间、最大安装数与掩码授权密钥（仅显示末 4 位）。
+> 安装过程显示每个文件的下载进度条；授权校验通过后输出客户名称、到期时间、最大安装数（不限时显示「不限」）与掩码授权密钥（仅显示末 4 位）。
 
 安装完成后：
 
@@ -112,6 +112,8 @@ curl -4 --http1.1 -fL --progress-bar --retry 3 --retry-delay 2 --connect-timeout
 下载 → SHA256 校验 → 备份旧程序（`.bak`）→ 替换 → 重启；更新完成后页面自动刷新。
 「重启面板」按钮用于手动重启服务进程（用户实例容器不受影响）。
 
+- 热更新：发行方覆盖重建同版本 Release 后，点「检查更新」会提示「当前已是最新版本（可热更新重装）」，
+  点「热更新当前版本」即可强制重新下载并覆盖当前程序（仍校验 SHA256），无需升版本号。
 - 适用范围：Linux 服务端；Windows 或不可写安装目录请用下方安装命令升级。
 - 国内服务器若连接 GitHub 超时，在「更新源与加速」填写 API 基址与下载镜像前缀，或直接在
   环境文件 `/etc/qlcloud/qlcloud.env` 中设置 `QL_UPDATE_MIRRORS` / `QL_UPDATE_API_BASE` 后重启服务。
